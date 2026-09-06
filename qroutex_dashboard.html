@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QRouteX — Core Prototype</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #d11010;
+    --navy-deep: #040910;
+    --ice: #CADCFC;
+    --ice-pale: #F0F4FE;
+    --teal: #0F6E56;
+    --coral: #B23A1D;
+    --amber: #9A6A14;
+    --gray-text: #4A5170;
+    --border: #DCE3F5;
+    --page-bg: #F6F8FD;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Calibri", Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--navy-deep);
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 18px 28px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-family: Cambria, Georgia, serif;
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+  header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ice);
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: none;
+    margin: 0 0 12px 0;
+    color: var(--navy);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--gray-text);
+    margin: 12px 0 4px;
+  }
+  input[type=number], select {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13.5px;
+    color: var(--navy-deep);
+    background: var(--ice-pale);
+  }
+  input[type=checkbox] { margin-right: 6px; }
+  .checkbox-row { display: flex; align-items: center; margin-top: 14px; font-size: 13px; color: var(--gray-text); }
+  button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { opacity: 0.75; }
+  #btnGenerate { background: var(--ice); color: var(--navy-deep); }
+  #btnRun { background: var(--navy); color: #fff; }
+  .status {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--gray-text);
+    min-height: 18px;
+  }
+  .main-col { display: flex; flex-direction: column; gap: 20px; }
+  .top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .top-row { grid-template-columns: 1fr; } }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .tab-btn {
+    padding: 5px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--ice-pale);
+    color: var(--gray-text);
+    font-size: 12px;
+    cursor: pointer;
+    width: auto;
+    margin: 0;
+  }
+  .tab-btn.active {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+  }
+  svg#mapSvg { width: 100%; height: auto; display: block; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--navy); font-weight: 700; background: var(--ice-pale); }
+  tr.best td { font-weight: 700; color: var(--teal); }
+  .legend-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--gray-text); }
+  .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .route-list { font-size: 12px; color: var(--gray-text); margin-top: 10px; line-height: 1.6; max-height: 140px; overflow-y: auto; }
+  .footnote { font-size: 11.5px; color: #8892B0; margin-top: 10px; line-height: 1.5; }
+  canvas#convChart { max-height: 300px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>QRouteX — Core Prototype</h1>
+  <p>Quantum-inspired traffic route optimization, running live in your browser</p>
+</header>
+
+<div class="layout">
+
+  <!-- CONTROLS -->
+  <div class="panel">
+    <h2>Instance & run settings</h2>
+
+    <label for="nCustomers">Customer nodes</label>
+    <input type="number" id="nCustomers" value="20" min="8" max="60" step="1">
+
+    <label for="capacity">Vehicle capacity</label>
+    <input type="number" id="capacity" value="45" min="10" max="200" step="1">
+
+    <label for="seed">Instance seed</label>
+    <input type="number" id="seed" value="7" min="0" step="1">
+
+    <label for="popSize">Population size</label>
+    <input type="number" id="popSize" value="30" min="5" max="100" step="1">
+
+    <label for="iters">Iterations</label>
+    <input type="number" id="iters" value="150" min="10" max="500" step="1">
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="applyHybrid">
+      <label for="applyHybrid" style="margin:0;">Apply 2-opt local search after search</label>
+    </div>
+
+    <button id="btnGenerate">Generate new instance</button>
+    <button id="btnRun">Run QPSO · PSO · GA</button>
+
+    <div class="status" id="status">Ready. Generate an instance, then run.</div>
+
+    <div class="footnote">
+      Runs the same objective function and algorithms as the offline benchmark
+      (QPSO: Sun et al. delta-potential-well update; PSO: standard inertia-weight;
+      GA: order-crossover on permutations). Every run uses a fixed seed for reproducibility.
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-col">
+
+    <div class="top-row">
+      <div class="panel">
+        <h2>Route map</h2>
+        <div class="tabs" id="mapTabs"></div>
+        <svg id="mapSvg" viewBox="0 0 520 520"></svg>
+        <div class="legend-row" id="mapLegend"></div>
+        <div class="route-list" id="routeList"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Convergence curve</h2>
+        <canvas id="convChart"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Benchmark results</h2>
+      <table id="resultsTable">
+        <thead>
+          <tr><th>Algorithm</th><th>Fitness F</th><th>Distance</th><th>Time</th><th>Congestion</th><th>Runtime</th><th>+2-opt F</th></tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr><td colspan="7" style="color:#8892B0;">No run yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ======================= Validated algorithm core =======================
+// (identical logic to qroutex_algorithms.js, checked against the Python
+// implementation for coverage correctness and monotonic convergence)
+
+const ALPHA = 0.35, BETA = 0.45, GAMMA = 0.20;
+const W1 = 0.4, W2 = 0.35, W3 = 0.25;
+const SPEED = 40.0;
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function generateInstance(seed, nCustomers, capacity, coordRange = 100) {
+  const rng = mulberry32(seed);
+  const n = nCustomers + 1;
+  const coords = Array.from({ length: n }, () => [rng() * coordRange, rng() * coordRange]);
+  const demands = Array.from({ length: n }, () => 3 + Math.floor(rng() * 8));
+  demands[0] = 0;
+
+  const dist = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) {
+      const dx = coords[i][0] - coords[j][0], dy = coords[i][1] - coords[j][1];
+      dist[i][j] = Math.sqrt(dx * dx + dy * dy);
+    }
+
+  const rawCong = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) rawCong[i][j] = 0.8 + rng() * 0.8;
+  const cong = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) cong[i][j] = i === j ? 0 : (rawCong[i][j] + rawCong[j][i]) / 2;
+
+  const time_ = Array.from({ length: n }, () => new Array(n).fill(0));
+  const W = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) {
+      time_[i][j] = (dist[i][j] * cong[i][j]) / SPEED;
+      W[i][j] = ALPHA * dist[i][j] + BETA * time_[i][j] + GAMMA * cong[i][j];
+    }
+
+  const totalDemand = demands.reduce((a, b) => a + b, 0);
+  const nVehicles = Math.max(2, Math.ceil((totalDemand * 1.2) / capacity));
+
+  return { n: nCustomers, nVehicles, capacity, coords, demands, dist, time: time_, congestion: cong, W };
+}
+
+function splitByCapacity(order, inst) {
+  const { demands, capacity, nVehicles } = inst;
+  const routes = [];
+  let current = [], load = 0;
+  for (const c of order) {
+    const d = demands[c];
+    if (load + d > capacity && current.length) { routes.push(current); current = []; load = 0; }
+    current.push(c); load += d;
+  }
+  if (current.length) routes.push(current);
+
+  let penalty = 0;
+  if (routes.length > nVehicles) {
+    const keep = routes.slice(0, nVehicles - 1);
+    const overflow = routes.slice(nVehicles - 1).flat();
+    keep.push(overflow);
+    const overshoot = Math.max(0, overflow.reduce((s, c) => s + demands[c], 0) - capacity);
+    penalty = 50 * overshoot;
+    return { routes: keep, penalty };
+  }
+  return { routes, penalty };
+}
+
+function decode(keys, inst) {
+  const idx = keys.map((v, i) => [v, i + 1]).sort((a, b) => a[0] - b[0]).map((p) => p[1]);
+  return splitByCapacity(idx, inst);
+}
+
+function routeCost(route, matrix) {
+  if (!route.length) return 0;
+  let total = matrix[0][route[0]];
+  for (let i = 0; i < route.length - 1; i++) total += matrix[route[i]][route[i + 1]];
+  total += matrix[route[route.length - 1]][0];
+  return total;
+}
+
+function solutionMetrics(routes, inst) {
+  let dist = 0, time_ = 0, cong = 0;
+  for (const r of routes) {
+    dist += routeCost(r, inst.dist);
+    time_ += routeCost(r, inst.time);
+    cong += routeCost(r, inst.congestion);
+  }
+  return { dist, time: time_, cong };
+}
+
+function fitnessFromRoutes(routes, penalty, inst) {
+  const { dist, time: time_, cong } = solutionMetrics(routes, inst);
+  return W1 * time_ + W2 * dist + W3 * cong + penalty;
+}
+function fitnessFromKeys(keys, inst) {
+  const { routes, penalty } = decode(keys, inst);
+  return { fit: fitnessFromRoutes(routes, penalty, inst), routes };
+}
+function fitnessFromPermutation(perm, inst) {
+  const { routes, penalty } = splitByCapacity(perm, inst);
+  return { fit: fitnessFromRoutes(routes, penalty, inst), routes };
+}
+
+function twoOpt(route, inst, maxPasses = 3) {
+  if (route.length < 3) return route;
+  let best = route.slice();
+  let improved = true, passes = 0;
+  const cost = (r) => routeCost(r, inst.W);
+  while (improved && passes < maxPasses) {
+    improved = false; passes++;
+    for (let i = 0; i < best.length - 1; i++) {
+      for (let j = i + 1; j < best.length; j++) {
+        const nr = best.slice(0, i).concat(best.slice(i, j + 1).reverse(), best.slice(j + 1));
+        if (cost(nr) < cost(best) - 1e-9) { best = nr; improved = true; }
+      }
+    }
+  }
+  return best;
+}
+
+function runPSO(inst, popSize, iters, seed) {
+  const rng = mulberry32(seed);
+  const n = inst.n;
+  let x = Array.from({ length: popSize }, () => Array.from({ length: n }, () => rng()));
+  let v = Array.from({ length: popSize }, () => Array.from({ length: n }, () => (rng() - 0.5) * 0.2));
+  let pbest = x.map((row) => row.slice());
+  let pbestFit = x.map((row) => fitnessFromKeys(row, inst).fit);
+  let gbestIdx = pbestFit.indexOf(Math.min(...pbestFit));
+  let gbest = pbest[gbestIdx].slice();
+  let gbestFit = pbestFit[gbestIdx];
+  const w = 0.7, c1 = 1.5, c2 = 1.5;
+  const curve = [gbestFit];
+  for (let it = 0; it < iters; it++) {
+    for (let i = 0; i < popSize; i++) {
+      for (let d = 0; d < n; d++) {
+        const r1 = rng(), r2 = rng();
+        v[i][d] = w * v[i][d] + c1 * r1 * (pbest[i][d] - x[i][d]) + c2 * r2 * (gbest[d] - x[i][d]);
+        x[i][d] = Math.min(1, Math.max(0, x[i][d] + v[i][d]));
+      }
+      const fit = fitnessFromKeys(x[i], inst).fit;
+      if (fit < pbestFit[i]) { pbestFit[i] = fit; pbest[i] = x[i].slice(); }
+      if (pbestFit[i] < gbestFit) { gbestFit = pbestFit[i]; gbest = pbest[i].slice(); }
+    }
+    curve.push(gbestFit);
+  }
+  const { routes } = fitnessFromKeys(gbest, inst);
+  return { fit: gbestFit, routes, curve };
+}
+
+function runQPSO(inst, popSize, iters, seed) {
+  const rng = mulberry32(seed);
+  const n = inst.n;
+  let x = Array.from({ length: popSize }, () => Array.from({ length: n }, () => rng()));
+  let pbest = x.map((row) => row.slice());
+  let pbestFit = x.map((row) => fitnessFromKeys(row, inst).fit);
+  let gbestIdx = pbestFit.indexOf(Math.min(...pbestFit));
+  let gbest = pbest[gbestIdx].slice();
+  let gbestFit = pbestFit[gbestIdx];
+  const betaStart = 1.0, betaEnd = 0.4;
+  const curve = [gbestFit];
+  for (let it = 0; it < iters; it++) {
+    const beta = betaStart - (betaStart - betaEnd) * (it / Math.max(1, iters - 1));
+    const mbest = new Array(n).fill(0);
+    for (let d = 0; d < n; d++) {
+      let s = 0; for (let i = 0; i < popSize; i++) s += pbest[i][d];
+      mbest[d] = s / popSize;
+    }
+    for (let i = 0; i < popSize; i++) {
+      for (let d = 0; d < n; d++) {
+        const phi = rng();
+        const p = phi * pbest[i][d] + (1 - phi) * gbest[d];
+        const u = Math.min(1 - 1e-6, Math.max(1e-6, rng()));
+        const sign = rng() < 0.5 ? -1 : 1;
+        let val = p + sign * beta * Math.abs(mbest[d] - x[i][d]) * Math.log(1 / u);
+        x[i][d] = Math.min(1, Math.max(0, val));
+      }
+      const fit = fitnessFromKeys(x[i], inst).fit;
+      if (fit < pbestFit[i]) { pbestFit[i] = fit; pbest[i] = x[i].slice(); }
+      if (pbestFit[i] < gbestFit) { gbestFit = pbestFit[i]; gbest = pbest[i].slice(); }
+    }
+    curve.push(gbestFit);
+  }
+  const { routes } = fitnessFromKeys(gbest, inst);
+  return { fit: gbestFit, routes, curve };
+}
+
+function orderCrossover(p1, p2, rng) {
+  const n = p1.length;
+  let a = Math.floor(rng() * n), b = Math.floor(rng() * n);
+  if (a > b) [a, b] = [b, a];
+  const child = new Array(n).fill(null);
+  const segment = new Set(p1.slice(a, b));
+  for (let i = a; i < b; i++) child[i] = p1[i];
+  let idx = 0;
+  const fill = p2.filter((c) => !segment.has(c));
+  for (let i = 0; i < n; i++) if (child[i] === null) { child[i] = fill[idx]; idx++; }
+  return child;
+}
+
+function runGA(inst, popSize, iters, seed) {
+  const rng = mulberry32(seed);
+  const n = inst.n;
+  const base = Array.from({ length: n }, (_, i) => i + 1);
+  function shuffled() {
+    const a = base.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  let pop = Array.from({ length: popSize }, () => shuffled());
+  let fit = pop.map((ind) => fitnessFromPermutation(ind, inst).fit);
+  let bestIdx = fit.indexOf(Math.min(...fit));
+  let gbest = pop[bestIdx].slice(), gbestFit = fit[bestIdx];
+  const curve = [gbestFit];
+  const mutationRate = 0.15, tournamentK = 3;
+  function tournamentPick() {
+    let bestI = -1, bestF = Infinity;
+    for (let k = 0; k < tournamentK; k++) {
+      const i = Math.floor(rng() * popSize);
+      if (fit[i] < bestF) { bestF = fit[i]; bestI = i; }
+    }
+    return pop[bestI];
+  }
+  for (let it = 0; it < iters; it++) {
+    const newPop = [gbest.slice()];
+    while (newPop.length < popSize) {
+      const p1 = tournamentPick(), p2 = tournamentPick();
+      let child = orderCrossover(p1, p2, rng);
+      if (rng() < mutationRate) {
+        const i = Math.floor(rng() * n), j = Math.floor(rng() * n);
+        [child[i], child[j]] = [child[j], child[i]];
+      }
+      newPop.push(child);
+    }
+    pop = newPop;
+    fit = pop.map((ind) => fitnessFromPermutation(ind, inst).fit);
+    bestIdx = fit.indexOf(Math.min(...fit));
+    if (fit[bestIdx] < gbestFit) { gbestFit = fit[bestIdx]; gbest = pop[bestIdx].slice(); }
+    curve.push(gbestFit);
+  }
+  const { routes } = fitnessFromPermutation(gbest, inst);
+  return { fit: gbestFit, routes, curve };
+}
+
+function nearestNeighborBaseline(inst) {
+  const n = inst.n;
+  const unvisited = new Set(Array.from({ length: n }, (_, i) => i + 1));
+  let current = 0;
+  const order = [];
+  while (unvisited.size) {
+    let best = null, bestCost = Infinity;
+    for (const c of unvisited) if (inst.W[current][c] < bestCost) { bestCost = inst.W[current][c]; best = c; }
+    order.push(best); unvisited.delete(best); current = best;
+  }
+  return fitnessFromPermutation(order, inst);
+}
+
+// ======================= Dashboard wiring =======================
+
+const COLORS = { QPSO: "#0F6E56", PSO: "#B23A1D", GA: "#9A6A14", NearestNeighbor: "#5A6280" };
+const VEHICLE_PALETTE = ["#0F6E56", "#B23A1D", "#9A6A14", "#3A5FB2", "#7A3AB2", "#B23A82", "#2E8B8B", "#8B6F2E"];
+
+let currentInstance = null;
+let currentResults = {}; // { QPSO: {fit, routes, curve, runtimeMs, hybridFit}, ... }
+let activeTab = "QPSO";
+let chart = null;
+
+function el(id) { return document.getElementById(id); }
+
+function generateInstanceFromUI() {
+  const n = parseInt(el("nCustomers").value, 10);
+  const cap = parseFloat(el("capacity").value);
+  const seed = parseInt(el("seed").value, 10);
+  currentInstance = generateInstance(seed, n, cap);
+  currentResults = {};
+  el("status").textContent = `Instance ready: ${n} customers, ${currentInstance.nVehicles} vehicles, capacity ${cap}.`;
+  renderMap();
+  renderTabs();
+  renderTable();
+  if (chart) { chart.destroy(); chart = null; }
+}
+
+function runAll() {
+  if (!currentInstance) { el("status").textContent = "Generate an instance first."; return; }
+  const pop = parseInt(el("popSize").value, 10);
+  const iters = parseInt(el("iters").value, 10);
+  const hybrid = el("applyHybrid").checked;
+  el("status").textContent = "Running QPSO, PSO, GA under identical settings...";
+
+  setTimeout(() => {
+    const t0 = performance.now();
+    const nn = nearestNeighborBaseline(currentInstance);
+    const nnMetrics = solutionMetrics(nn.routes, currentInstance);
+    currentResults.NearestNeighbor = { fit: nn.fit, routes: nn.routes, curve: null, runtimeMs: 0, ...nnMetrics };
+
+    const algos = [["QPSO", runQPSO, 1000], ["PSO", runPSO, 2000], ["GA", runGA, 3000]];
+    for (const [name, fn, seedBase] of algos) {
+      const t1 = performance.now();
+      const result = fn(currentInstance, pop, iters, seedBase);
+      const runtimeMs = performance.now() - t1;
+      const metrics = solutionMetrics(result.routes, currentInstance);
+      let hybridFit = null, hybridRoutes = result.routes;
+      if (hybrid) {
+        hybridRoutes = result.routes.map((r) => twoOpt(r, currentInstance, 3));
+        hybridFit = hybridRoutes.reduce((s, r) => s + routeCost(r, currentInstance.W), 0);
+      }
+      currentResults[name] = { ...result, ...metrics, runtimeMs, hybridFit, hybridRoutes };
+    }
+    const totalMs = performance.now() - t0;
+    el("status").textContent = `Done in ${totalMs.toFixed(0)} ms. Population ${pop}, ${iters} iterations, identical instance for all three.`;
+
+    activeTab = "QPSO";
+    renderTabs();
+    renderMap();
+    renderTable();
+    renderChart();
+  }, 30); // let the status text paint before the (synchronous) compute
+}
+
+function renderTabs() {
+  const wrap = el("mapTabs");
+  wrap.innerHTML = "";
+  const names = ["QPSO", "PSO", "GA", "NearestNeighbor"].filter((n) => currentResults[n]);
+  if (!names.length) { wrap.innerHTML = '<span style="font-size:12px;color:#8892B0;">Run the algorithms to compare routes</span>'; return; }
+  for (const name of names) {
+    const b = document.createElement("button");
+    b.className = "tab-btn" + (name === activeTab ? " active" : "");
+    b.textContent = name === "NearestNeighbor" ? "Nearest Neighbor" : name;
+    b.style.width = "auto";
+    b.onclick = () => { activeTab = name; renderTabs(); renderMap(); };
+    wrap.appendChild(b);
+  }
+}
+
+function renderMap() {
+  const svg = el("mapSvg");
+  const legend = el("mapLegend");
+  const list = el("routeList");
+  if (!currentInstance) { svg.innerHTML = ""; legend.innerHTML = ""; list.innerHTML = ""; return; }
+
+  const inst = currentInstance;
+  const pad = 40, size = 520;
+  const scale = (v) => pad + (v / 100) * (size - 2 * pad);
+
+  const result = currentResults[activeTab];
+  const routes = result ? (result.hybridRoutes || result.routes) : null;
+
+  let svgParts = [];
+  // edges
+  if (routes) {
+    routes.forEach((route, idx) => {
+      const color = VEHICLE_PALETTE[idx % VEHICLE_PALETTE.length];
+      const pts = [0, ...route, 0].map((c) => `${scale(inst.coords[c][0])},${scale(100 - inst.coords[c][1])}`);
+      svgParts.push(`<polyline points="${pts.join(" ")}" fill="none" stroke="${color}" stroke-width="2.2" opacity="0.85"/>`);
+    });
+  }
+  // depot
+  const dx = scale(inst.coords[0][0]), dy = scale(100 - inst.coords[0][1]);
+  svgParts.push(`<rect x="${dx - 8}" y="${dy - 8}" width="16" height="16" fill="#1E2761" transform="rotate(45 ${dx} ${dy})" stroke="#fff" stroke-width="1"/>`);
+  // customers
+  for (let c = 1; c <= inst.n; c++) {
+    const cx = scale(inst.coords[c][0]), cy = scale(100 - inst.coords[c][1]);
+    let fill = "#B8C2E8";
+    if (routes) {
+      const vIdx = routes.findIndex((r) => r.includes(c));
+      if (vIdx >= 0) fill = VEHICLE_PALETTE[vIdx % VEHICLE_PALETTE.length];
+    }
+    svgParts.push(`<circle cx="${cx}" cy="${cy}" r="8" fill="${fill}" stroke="#fff" stroke-width="1.3"/>`);
+    svgParts.push(`<text x="${cx}" y="${cy + 3.5}" font-size="8" text-anchor="middle" fill="#fff" font-family="Calibri">${c}</text>`);
+  }
+  svg.innerHTML = svgParts.join("");
+
+  // legend
+  if (routes) {
+    legend.innerHTML = routes.map((r, idx) =>
+      `<span><span class="legend-swatch" style="background:${VEHICLE_PALETTE[idx % VEHICLE_PALETTE.length]}"></span>Vehicle ${idx + 1} (${r.length} stops)</span>`
+    ).join("") + `<span><span class="legend-swatch" style="background:#1E2761;border-radius:2px;"></span>Depot</span>`;
+    list.innerHTML = routes.map((r, idx) => `<div><strong>Vehicle ${idx + 1}:</strong> Depot → ${r.join(" → ")} → Depot</div>`).join("");
+  } else {
+    legend.innerHTML = "";
+    list.innerHTML = "";
+  }
+}
+
+function renderTable() {
+  const body = el("resultsBody");
+  const names = ["NearestNeighbor", "QPSO", "PSO", "GA"].filter((n) => currentResults[n]);
+  if (!names.length) { body.innerHTML = '<tr><td colspan="7" style="color:#8892B0;">No run yet.</td></tr>'; return; }
+
+  let bestName = null, bestFit = Infinity;
+  for (const n of names) {
+    const f = currentResults[n].hybridFit ?? currentResults[n].fit;
+    if (f < bestFit) { bestFit = f; bestName = n; }
+  }
+
+  body.innerHTML = names.map((name) => {
+    const r = currentResults[name];
+    const label = name === "NearestNeighbor" ? "Nearest Neighbor" : name;
+    const runtime = name === "NearestNeighbor" ? "—" : `${r.runtimeMs.toFixed(1)} ms`;
+    const hybrid = r.hybridFit != null ? r.hybridFit.toFixed(2) : "—";
+    return `<tr class="${name === bestName ? "best" : ""}">
+      <td>${label}</td><td>${r.fit.toFixed(2)}</td><td>${r.dist.toFixed(1)}</td>
+      <td>${r.time.toFixed(2)}</td><td>${r.cong.toFixed(1)}</td><td>${runtime}</td><td>${hybrid}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderChart() {
+  const ctx = el("convChart").getContext("2d");
+  const datasets = [];
+  for (const name of ["QPSO", "PSO", "GA"]) {
+    if (currentResults[name] && currentResults[name].curve) {
+      datasets.push({
+        label: name,
+        data: currentResults[name].curve,
+        borderColor: COLORS[name],
+        backgroundColor: COLORS[name],
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.15,
+      });
+    }
+  }
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: "line",
+    data: { labels: datasets[0] ? datasets[0].data.map((_, i) => i) : [], datasets },
+    options: {
+      responsive: true,
+      animation: false,
+      scales: {
+        x: { title: { display: true, text: "Iteration" } },
+        y: { title: { display: true, text: "Objective value F (lower is better)" } },
+      },
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
+}
+
+el("btnGenerate").addEventListener("click", generateInstanceFromUI);
+el("btnRun").addEventListener("click", runAll);
+
+// initialize with a default instance on load
+generateInstanceFromUI();
+</script>
+</body>
+</html>
