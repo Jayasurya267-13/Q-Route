@@ -296,9 +296,4 @@ MIT License — see `LICENSE` for details.
 ## Requirements
 - Python backend: Python 3 + NumPy only
 - Dashboard: any modern browser, internet connection for the Chart.js CDN script tag
-  (swap in a local copy of Chart.js if presenting somewhere offline)
-
-## To extend
-- Increase INSTANCE_SIZES / N_RUNS in run_benchmark.py for a deeper study
-- Swap generate_instance() for a real OSMnx-derived road network + SUMO traffic feed
-- Add OR-Tools as a fourth baseline once environment allows installing it
+  (swap in a local copy of Chart.js if presenting somewhere offline.
